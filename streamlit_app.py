@@ -41,17 +41,6 @@ df = load_data()
 st.title("🌊 Marine Pollution Dashboard")
 st.markdown("Dashboard ini menampilkan visualisasi interaktif mengenai insiden polusi laut.")
 
-# --- Ringkasan Statistik ---
-if not df.empty:
-    total = len(filtered_df)
-    total_countries = filtered_df['Country'].nunique()
-    total_types = filtered_df['pollution_type'].nunique()
-
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Insiden", total)
-    col2.metric("Negara Unik", total_countries)
-    col3.metric("Jenis Polusi Unik", total_types)
-
 # --- Bagian Filter (Ditempatkan di Sidebar untuk Tata Letak yang Bersih) ---
 st.sidebar.header("Filter Data")
 
@@ -114,8 +103,21 @@ def filter_dataframe(data_frame, country, ptype, start_date, end_date):
         dff = dff[(dff['inc_date'] >= start_date) & (dff['inc_date'] <= end_date)]
     return dff
 
-# Terapkan filter ke DataFrame
+# Terapkan filter ke DataFrame - Pindahkan baris ini ke atas bagian Ringkasan Statistik
 filtered_df = filter_dataframe(df, selected_country, selected_pollution_type, start_date_filter, end_date_filter)
+
+# --- Ringkasan Statistik ---
+# Pastikan filtered_df sudah terdefinisi sebelum digunakan di sini
+if not df.empty:
+    total = len(filtered_df)
+    total_countries = filtered_df['Country'].nunique()
+    total_types = filtered_df['pollution_type'].nunique()
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Insiden", total)
+    col2.metric("Negara Unik", total_countries)
+    col3.metric("Jenis Polusi Unik", total_types)
+
 
 # --- Tampilan Visualisasi ---
 
@@ -227,4 +229,5 @@ if not filtered_df.empty:
 
 # --- Cara Menjalankan Aplikasi Streamlit ---
 st.sidebar.markdown("---")
-st.sidebar.markdown()
+st.sidebar.markdown("Jalankan aplikasi ini dengan perintah:")
+st.sidebar.code("streamlit run your_script_name.py")
