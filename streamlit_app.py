@@ -110,7 +110,11 @@ with col2:
 
     # --- DEBUGGING LINE FOR top_pollution ---
     st.write("Debug: Value of top_pollution before plotting:")
-    st.write(top_pollution)
+    # Convert to string or use st.text() to avoid table rendering
+    if top_pollution is not None:
+        st.text(top_pollution.to_string())
+    else:
+        st.text("top_pollution is None or empty.")
     # --- END DEBUGGING LINE ---
 
     if top_pollution is not None and not top_pollution.empty:
