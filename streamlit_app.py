@@ -220,11 +220,4 @@ else:
 st.sidebar.markdown("---")
 st.sidebar.markdown(
     """
-    **Cara Menjalankan Aplikasi Ini:**
-    1.  Pastikan Anda telah menginstal Streamlit (`pip install streamlit`).
-    2.  Pastikan file `Marine Pollution data.xlsx` berada di direktori yang sama dengan skrip ini.
-    3.  Buka Terminal atau Command Prompt.
-    4.  Navigasi ke direktori tempat Anda menyimpan skrip ini.
-    5.  Jalankan perintah: `streamlit run streamlit_app.py`
-    """
 )
