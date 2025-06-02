@@ -90,11 +90,11 @@ with col2:
     if not filtered_df.empty:
         top_pollution = filtered_df['pollution_type'].value_counts().nlargest(10)
         title_bar = "Top 10 Jenis Polusi (Data Difilter)"
-    elif not df.empty:
+    elif not df.empty: # This is your fallback
         st.warning("Tidak ada data yang sesuai dengan filter. Menampilkan data dari semua negara dan jenis polusi.")
         top_pollution = df['pollution_type'].value_counts().nlargest(10)
         title_bar = "Top 10 Jenis Polusi (Semua Data)"
-    else:
+    else: # This block is reached if both filtered_df and df are empty
         top_pollution = None
 
     if top_pollution is not None and not top_pollution.empty:
@@ -106,7 +106,7 @@ with col2:
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
         st.plotly_chart(fig_bar, use_container_width=True)
-    else:
+    else: # This block is reached if top_pollution is None or empty
         st.info("Tidak ada data yang bisa ditampilkan untuk jenis polusi.")
 
 if not filtered_df.empty:
