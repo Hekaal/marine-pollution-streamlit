@@ -150,13 +150,13 @@ with col1:
 
 with col2:
     st.header("📊 Jenis Polusi Paling Umum")
-    st.caption("Grafik batang ini menampilkan 5 jenis polusi laut yang paling sering terjadi dalam data yang difilter. Ini membantu mengidentifikasi polusi yang paling dominan.")
+    st.caption("Grafik batang ini menampilkan 3 jenis polusi laut yang paling sering terjadi dalam data yang difilter. Ini membantu mengidentifikasi polusi yang paling dominan.")
     
     top_pollution = pd.Series(dtype='int64') # Initialize as an empty Series for robustness
 
     # Determine which DataFrame to use for the bar chart
     data_for_bar_chart = filtered_df
-    title_bar = "Top 5 Jenis Polusi (Data Difilter)"
+    title_bar = "3 Jenis Polusi"
 
     if filtered_df.empty:
         if not df.empty:
