@@ -11,12 +11,19 @@ def load_data():
         df = pd.read_excel("Marine Pollution data.xlsx", sheet_name="ENV_Marine_Pollution_Obs_data_v")
         df['inc_date'] = pd.to_datetime(df['inc_date'], errors='coerce')
         df['pollution_qty'] = pd.to_numeric(df['pollution_qty'], errors='coerce')
+        # Drop Note columns as they might not be needed and can cause issues
         note_cols = [col for col in df.columns if col.startswith("Note")]
         df.drop(columns=note_cols, inplace=True)
         df = df.dropna(subset=['LAT_1', 'LONG'])
+        
+        # --- FIX: Fill NaN values in 'pollution_type' before using for charts ---
+        if 'pollution_type' in df.columns:
+            df['pollution_type'] = df['pollution_type'].fillna('Tidak Diketahui')
+        # --- END FIX ---
+
         return df
     except FileNotFoundError:
-        st.error("Error: File 'Marine Pollution data.xlsx' tidak ditemukan.")
+        st.error("Error: File 'Marine Pollution data.xlsx' tidak ditemukan. Pastikan file berada di direktori yang sama dengan aplikasi.")
         st.stop()
     except Exception as e:
         st.error(f"Terjadi kesalahan saat memuat data: {e}")
@@ -35,12 +42,18 @@ if not df['inc_date'].empty and pd.notna(df['inc_date'].min()) and pd.notna(df['
     min_date_for_picker = df['inc_date'].min().date()
     max_date_for_picker = df['inc_date'].max().date()
 else:
-    min_date_for_picker = datetime.date(1900, 1, 1)
+    min_date_for_picker = datetime.date(1900, 1, 1) # Default if no valid dates
     max_date_for_picker = datetime.date.today()
 
 selected_country = st.sidebar.selectbox("Pilih Negara", options=[None] + countries, format_func=lambda x: "Semua Negara" if x is None else x, index=0)
 selected_pollution_type = st.sidebar.selectbox("Pilih Jenis Polusi", options=[None] + pollution_types, format_func=lambda x: "Semua Jenis Polusi" if x is None else x, index=0)
-selected_dates = st.sidebar.date_input("Rentang Tanggal", value=(min_date_for_picker, max_date_for_picker), min_value=min_date_for_picker, max_value=max_date_for_picker)
+
+# Ensure selected_dates is a tuple with two elements for date_input
+if min_date_for_picker > max_date_for_picker: # Handle cases where data might be sparse
+    selected_dates = (max_date_for_picker, max_date_for_picker)
+else:
+    selected_dates = st.sidebar.date_input("Rentang Tanggal", value=(min_date_for_picker, max_date_for_picker), min_value=min_date_for_picker, max_value=max_date_for_picker)
+
 
 if len(selected_dates) == 2:
     start_date_filter = pd.Timestamp(selected_dates[0])
@@ -59,7 +72,8 @@ def filter_dataframe(data_frame, country, ptype, start_date, end_date):
     if ptype:
         dff = dff[dff['pollution_type'] == ptype]
     if start_date and end_date:
-        dff = dff[(dff['inc_date'] >= start_date) & (dff['inc_date'] <= end_date)]
+        # Ensure 'inc_date' is datetime for comparison
+        dff = dff[(dff['inc_date'].dt.date >= start_date.date()) & (dff['inc_date'].dt.date <= end_date.date())]
     return dff
 
 filtered_df = filter_dataframe(df, selected_country, selected_pollution_type, start_date_filter, end_date_filter)
@@ -76,7 +90,7 @@ if not df.empty:
 col1, col2 = st.columns(2)
 
 with col1:
-    st.header("\U0001F5FA\ufe0f Sebaran Lokasi Insiden Polusi Laut")
+    st.header("🗺️ Sebaran Lokasi Insiden Polusi Laut")
     st.caption("Visualisasi ini menunjukkan lokasi geografis insiden polusi laut berdasarkan koordinat yang tercatat. Warna pada titik menunjukkan jenis polusi yang terjadi.")
     if not filtered_df.empty:
         fig_map = px.scatter_geo(filtered_df, lat='LAT_1', lon='LONG', color='pollution_type', hover_name='Country', title="Peta Lokasi Insiden Polusi Laut", projection="natural earth", height=500)
@@ -85,37 +99,26 @@ with col1:
         st.info("Peta tidak dapat ditampilkan karena tidak ada data yang difilter.")
 
 with col2:
-    st.header("\U0001F4CA Jenis Polusi Paling Umum")
+    st.header("📊 Jenis Polusi Paling Umum")
     st.caption("Grafik batang ini menampilkan 10 jenis polusi laut yang paling sering terjadi dalam data yang difilter. Ini membantu mengidentifikasi polusi yang paling dominan.")
-
+    
     top_pollution = None # Initialize to None
 
     if not filtered_df.empty:
-        # Ensure pollution_type column exists and has non-null values for counting
-        if 'pollution_type' in filtered_df.columns and not filtered_df['pollution_type'].dropna().empty:
+        if 'pollution_type' in filtered_df.columns and not filtered_df['pollution_type'].empty:
             top_pollution = filtered_df['pollution_type'].value_counts().nlargest(10)
             title_bar = "Top 10 Jenis Polusi (Data Difilter)"
         else:
-            st.info("Filtered data has no valid 'pollution_type' entries to display the chart.")
+            st.info("Data yang difilter tidak memiliki jenis polusi yang valid untuk ditampilkan.")
     elif not df.empty:
         st.warning("Tidak ada data yang sesuai dengan filter. Menampilkan data dari semua negara dan jenis polusi.")
-        # Ensure pollution_type column exists and has non-null values for counting
-        if 'pollution_type' in df.columns and not df['pollution_type'].dropna().empty:
+        if 'pollution_type' in df.columns and not df['pollution_type'].empty:
             top_pollution = df['pollution_type'].value_counts().nlargest(10)
             title_bar = "Top 10 Jenis Polusi (Semua Data)"
         else:
-            st.info("Original data has no valid 'pollution_type' entries to display the chart.")
+            st.info("Data asli tidak memiliki jenis polusi yang valid untuk ditampilkan.")
     else:
-        st.info("Neither filtered nor original data is available for pollution types.")
-
-    # --- DEBUGGING LINE FOR top_pollution ---
-    st.write("Debug: Value of top_pollution before plotting:")
-    # Convert to string or use st.text() to avoid table rendering
-    if top_pollution is not None:
-        st.text(top_pollution.to_string())
-    else:
-        st.text("top_pollution is None or empty.")
-    # --- END DEBUGGING LINE ---
+        st.info("Tidak ada data yang tersedia baik dari filter maupun data asli untuk jenis polusi.")
 
     if top_pollution is not None and not top_pollution.empty:
         fig_bar = px.bar(
@@ -127,21 +130,27 @@ with col2:
         )
         st.plotly_chart(fig_bar, use_container_width=True)
     else:
+        # This will catch cases where top_pollution is None or empty after all checks
         st.info("Tidak ada data yang bisa ditampilkan untuk jenis polusi.")
 
+
+# Tren Waktu Insiden Polusi Laut
+st.header("📈 Tren Waktu Insiden Polusi Laut")
+st.caption("Grafik garis ini menampilkan jumlah insiden polusi laut dari waktu ke waktu, dikelompokkan per bulan.")
 if not filtered_df.empty:
     dff_trend = filtered_df.dropna(subset=['inc_date'])
     if not dff_trend.empty:
+        # Group by month and year
         trend = dff_trend.groupby(dff_trend['inc_date'].dt.to_period('M')).size().sort_index()
-        trend.index = trend.index.to_timestamp()
+        trend.index = trend.index.to_timestamp() # Convert PeriodIndex to Timestamp for plotting
         fig_time_trend = px.line(x=trend.index, y=trend.values, labels={'x': 'Bulan', 'y': 'Jumlah Insiden'}, title='Tren Waktu Insiden Polusi Laut (Per Bulan)', markers=True)
         st.plotly_chart(fig_time_trend, use_container_width=True)
     else:
         st.info("Tidak ada data tanggal yang valid untuk menampilkan tren waktu dengan filter yang dipilih.")
 else:
-    st.info("Grafik tren waktu tidak dapat ditampilkan karena tidak ada data yang difiltered.")
+    st.info("Grafik tren waktu tidak dapat ditampilkan karena tidak ada data yang difilter.")
 
-st.header("\U0001F4A1 Kesadaran dan Edukasi Publik")
+st.header("💡 Kesadaran dan Edukasi Publik")
 st.caption("Diagram donat ini menggambarkan distribusi status kesadaran masyarakat ('aware') terhadap insiden polusi laut, berdasarkan kolom `aware_ans`.")
 if not filtered_df.empty:
     if 'aware_ans' in filtered_df.columns:
@@ -157,12 +166,12 @@ else:
     st.info("Grafik kesadaran tidak dapat ditampilkan karena tidak ada data yang difilter.")
 
 st.markdown("---")
-st.header("\U0001F4CB Detail Data Insiden")
+st.header("📋 Detail Data Insiden")
 st.caption("Tabel ini menyajikan data mentah dari insiden yang ditampilkan, termasuk negara, tanggal kejadian, jenis polusi, dan lokasi geografisnya.")
 if not filtered_df.empty:
     st.dataframe(filtered_df[['Country', 'inc_date', 'pollution_type', 'material', 'LAT_1', 'LONG']], use_container_width=True, height=300)
     csv = filtered_df.to_csv(index=False).encode('utf-8')
-    st.download_button("\U0001F4E5 Download Data yang Difilter (.csv)", data=csv, file_name='filtered_marine_pollution.csv', mime='text/csv')
+    st.download_button("⬇️ Download Data yang Difilter (.csv)", data=csv, file_name='filtered_marine_pollution.csv', mime='text/csv')
 else:
     st.info("Tabel data tidak dapat ditampilkan karena tidak ada data yang difilter.")
 
