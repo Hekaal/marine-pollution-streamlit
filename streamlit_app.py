@@ -38,7 +38,7 @@ def load_data():
 df = load_data()
 
 # --- Judul Utama Dashboard ---
-st.title("🌊 Marine Pollution Dashboard")
+st.title("\ud83c\udf0a Marine Pollution Dashboard")
 st.markdown("Dashboard ini menampilkan visualisasi interaktif mengenai insiden polusi laut.")
 
 # --- Bagian Filter (Ditempatkan di Sidebar untuk Tata Letak yang Bersih) ---
