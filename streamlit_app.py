@@ -10,36 +10,48 @@ def load_data():
     try:
         df = pd.read_excel("Marine Pollution data.xlsx", sheet_name="ENV_Marine_Pollution_Obs_data_v")
         
-        # Convert date column
+        # Convert date column, coercing errors to NaT
         df['inc_date'] = pd.to_datetime(df['inc_date'], errors='coerce')
         
-        # Convert pollution_qty to numeric
+        # Convert pollution_qty to numeric, coercing errors to NaN
         df['pollution_qty'] = pd.to_numeric(df['pollution_qty'], errors='coerce')
         
-        # Drop Note columns
+        # Drop Note columns (if they exist)
         note_cols = [col for col in df.columns if col.startswith("Note")]
         df.drop(columns=note_cols, inplace=True)
         
         # Drop rows with missing LAT_1 or LONG for map visualization
         df = df.dropna(subset=['LAT_1', 'LONG'])
         
-        # --- PERBAIKAN: Pembersihan kolom 'pollution_type' yang lebih kuat ---
+        # --- PERBAIKAN PENTING: Pembersihan kolom 'pollution_type' yang sangat kuat ---
         if 'pollution_type' in df.columns:
-            # Mengisi NaN dengan 'Tidak Diketahui'
-            df['pollution_type'] = df['pollution_type'].fillna('Tidak Diketahui')
-            # Mengubah semua nilai menjadi string dan menghilangkan spasi di awal/akhir
-            df['pollution_type'] = df['pollution_type'].astype(str).str.strip()
-            # Mengisi string kosong yang mungkin tersisa setelah strip dengan 'Tidak Diketahui'
-            df.loc[df['pollution_type'] == '', 'pollution_type'] = 'Tidak Diketahui'
+            # Mengubah semua nilai menjadi string untuk memastikan konsistensi
+            df['pollution_type'] = df['pollution_type'].astype(str)
+            
+            # Menghilangkan spasi di awal/akhir
+            df['pollution_type'] = df['pollution_type'].str.strip()
+            
+            # Mengganti string kosong atau "nan" (dari konversi NaN ke string) dengan 'Tidak Diketahui'
+            df['pollution_type'] = df['pollution_type'].replace({
+                '': 'Tidak Diketahui',          # Menangani string kosong
+                'nan': 'Tidak Diketahui',       # Menangani nilai NaN yang dikonversi ke string 'nan'
+                ' ': 'Tidak Diketahui',         # Menangani spasi kosong
+                '-': 'Tidak Diketahui'          # Contoh: jika ada tanda '-' untuk kosong
+            })
+            
+            # Pastikan semua string tetap valid, buang jika masih ada yang tidak berguna
+            # Misalnya, jika ada baris yang hanya berisi angka atau simbol yang tidak relevan
+            # Ini opsional, tergantung seberapa "kotor" data Anda
+            # df['pollution_type'] = df['pollution_type'].apply(lambda x: x if isinstance(x, str) and len(x) > 1 else 'Tidak Diketahui')
+
         else:
-            print("Peringatan: Kolom 'pollution_type' tidak ditemukan di dataset.")
-            # Buat kolom placeholder jika tidak ada, agar tidak error
+            print("Peringatan: Kolom 'pollution_type' tidak ditemukan di dataset. Membuat kolom placeholder.")
             df['pollution_type'] = 'Tidak Diketahui (Kolom Hilang)'
         # --- AKHIR PERBAIKAN ---
 
-        print(f"Data Loaded Successfully. Total rows: {len(df)}")
-        print(f"Unique pollution types after cleaning: {df['pollution_type'].nunique()}")
-        print("Top 5 pollution types after cleaning:")
+        print(f"DEBUG: Data Loaded. Total rows: {len(df)}")
+        print(f"DEBUG: Unique pollution types after strong cleaning: {df['pollution_type'].nunique()}")
+        print("DEBUG: Top 5 pollution types after strong cleaning:")
         print(df['pollution_type'].value_counts(dropna=False).head())
 
         return df
@@ -57,30 +69,28 @@ st.markdown("Dashboard ini menampilkan visualisasi interaktif mengenai insiden p
 
 st.sidebar.header("Filter Data")
 countries = sorted(df['Country'].dropna().unique())
-pollution_types = sorted(df['pollution_type'].dropna().unique()) # Use cleaned pollution types
+pollution_types = sorted(df['pollution_type'].dropna().unique())
 
+# Set default date values for date input
 if not df['inc_date'].empty and pd.notna(df['inc_date'].min()) and pd.notna(df['inc_date'].max()):
     min_date_for_picker = df['inc_date'].min().date()
     max_date_for_picker = df['inc_date'].max().date()
 else:
-    min_date_for_picker = datetime.date(1900, 1, 1) # Default if no valid dates
-    max_date_for_picker = datetime.date.today()
+    min_date_for_picker = datetime.date(1900, 1, 1) # Fallback to a very old date
+    max_date_for_picker = datetime.date.today() # Fallback to today
 
-selected_country = st.sidebar.selectbox("Pilih Negara", options=[None] + countries, format_func=lambda x: "Semua Negara" if x is None else x, index=0)
-selected_pollution_type = st.sidebar.selectbox("Pilih Jenis Polusi", options=[None] + pollution_types, format_func=lambda x: "Semua Jenis Polusi" if x is None else x, index=0)
-
-# Ensure selected_dates is a tuple with two elements for date_input
-# Handle case where min_date might be greater than max_date if data is very sparse or invalid
+# Handle cases where min_date might be after max_date due to data issues
 if min_date_for_picker > max_date_for_picker:
-    selected_dates = (max_date_for_picker, max_date_for_picker) # Set to a single day if range is invalid
-elif not isinstance(min_date_for_picker, datetime.date) or not isinstance(max_date_for_picker, datetime.date):
-    # Fallback if dates are not valid date objects
-    selected_dates = (datetime.date(2000, 1, 1), datetime.date.today()) # A reasonable default range
+    selected_dates = (max_date_for_picker, max_date_for_picker) # Set to a single day
 else:
     selected_dates = st.sidebar.date_input("Rentang Tanggal", 
                                           value=(min_date_for_picker, max_date_for_picker), 
                                           min_value=min_date_for_picker, 
                                           max_value=max_date_for_picker)
+
+selected_country = st.sidebar.selectbox("Pilih Negara", options=[None] + countries, format_func=lambda x: "Semua Negara" if x is None else x, index=0)
+selected_pollution_type = st.sidebar.selectbox("Pilih Jenis Polusi", options=[None] + pollution_types, format_func=lambda x: "Semua Jenis Polusi" if x is None else x, index=0)
+
 
 if len(selected_dates) == 2:
     start_date_filter = pd.Timestamp(selected_dates[0])
@@ -94,23 +104,25 @@ else:
 
 def filter_dataframe(data_frame, country, ptype, start_date, end_date):
     dff = data_frame.copy()
-    print(f"Initial rows for filtering: {len(dff)}")
+    print(f"DEBUG: Initial rows for filtering: {len(dff)}")
 
     if country:
         dff = dff[dff['Country'] == country]
-        print(f"Rows after country filter '{country}': {len(dff)}")
+        print(f"DEBUG: Rows after country filter '{country}': {len(dff)}")
     if ptype:
         dff = dff[dff['pollution_type'] == ptype]
-        print(f"Rows after pollution type filter '{ptype}': {len(dff)}")
+        print(f"DEBUG: Rows after pollution type filter '{ptype}': {len(dff)}")
     if start_date and end_date:
-        # Ensure 'inc_date' is datetime for comparison and compare only date part
-        dff = dff[(dff['inc_date'].dt.date >= start_date.date()) & (dff['inc_date'].dt.date <= end_date.date())]
-        print(f"Rows after date filter '{start_date.date()} - {end_date.date()}': {len(dff)}")
+        # Ensure 'inc_date' is datetime and compare only date part
+        # Drop rows where 'inc_date' is NaT before comparison to avoid errors
+        dff_temp = dff.dropna(subset=['inc_date']) 
+        dff = dff_temp[(dff_temp['inc_date'].dt.date >= start_date.date()) & (dff_temp['inc_date'].dt.date <= end_date.date())]
+        print(f"DEBUG: Rows after date filter '{start_date.date()} - {end_date.date()}': {len(dff)}")
     return dff
 
 filtered_df = filter_dataframe(df, selected_country, selected_pollution_type, start_date_filter, end_date_filter)
 
-print(f"Final filtered_df rows: {len(filtered_df)}")
+print(f"DEBUG: Final filtered_df rows: {len(filtered_df)}")
 
 if not df.empty:
     total = len(filtered_df)
@@ -136,37 +148,36 @@ with col2:
     st.header("📊 Jenis Polusi Paling Umum")
     st.caption("Grafik batang ini menampilkan 10 jenis polusi laut yang paling sering terjadi dalam data yang difilter. Ini membantu mengidentifikasi polusi yang paling dominan.")
     
-    top_pollution = None 
+    top_pollution = pd.Series(dtype='int64') # Initialize as an empty Series for robustness
 
-    # --- PERBAIKAN: Memastikan 'pollution_type' memiliki data sebelum menghitung value_counts ---
+    # Determine which DataFrame to use for the bar chart
     data_for_bar_chart = filtered_df
     title_bar = "Top 10 Jenis Polusi (Data Difilter)"
 
     if filtered_df.empty:
-        # Jika filtered_df kosong, coba gunakan data asli df sebagai fallback
         if not df.empty:
             st.warning("Tidak ada data yang sesuai dengan filter. Menampilkan data dari semua negara dan jenis polusi.")
             data_for_bar_chart = df
             title_bar = "Top 10 Jenis Polusi (Semua Data)"
         else:
             st.info("Tidak ada data yang tersedia baik dari filter maupun data asli untuk jenis polusi.")
-            data_for_bar_chart = pd.DataFrame() # Set to empty DataFrame if no data at all
+            data_for_bar_chart = pd.DataFrame() # Ensure it's an empty DataFrame
 
     if not data_for_bar_chart.empty and 'pollution_type' in data_for_bar_chart.columns:
-        # Hitung value_counts, pastikan tidak ada Series kosong dari sini
+        # Calculate value_counts on the cleaned 'pollution_type' column
         temp_value_counts = data_for_bar_chart['pollution_type'].value_counts()
-        print(f"Value counts for bar chart ({title_bar}):")
-        print(temp_value_counts.head()) # Log this to console
+        
+        print(f"DEBUG: Value counts for bar chart ({title_bar}):")
+        print(temp_value_counts.head(10)) # Log top 10 counts to console
 
         if not temp_value_counts.empty:
             top_pollution = temp_value_counts.nlargest(10)
         else:
-            print("Value counts result is empty.")
+            print("DEBUG: Value counts result is empty after all cleaning.")
     else:
-        print("Data for bar chart is empty or 'pollution_type' column is missing.")
+        print("DEBUG: Data for bar chart is empty or 'pollution_type' column is missing/problematic.")
 
-    # --- AKHIR PERBAIKAN ---
-
+    # --- Plotting logic ---
     if top_pollution is not None and not top_pollution.empty:
         fig_bar = px.bar(
             x=top_pollution.index,
@@ -177,7 +188,7 @@ with col2:
         )
         st.plotly_chart(fig_bar, use_container_width=True)
     else:
-        st.info("Tidak ada data yang bisa ditampilkan untuk jenis polusi pada grafik ini.")
+        st.info("Tidak ada data yang bisa ditampilkan untuk jenis polusi pada grafik ini. Mohon periksa data Excel atau filter yang dipilih.")
 
 
 # Tren Waktu Insiden Polusi Laut
