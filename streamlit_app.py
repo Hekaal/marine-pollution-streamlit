@@ -87,15 +87,31 @@ with col1:
 with col2:
     st.header("\U0001F4CA Jenis Polusi Paling Umum")
     st.caption("Grafik batang ini menampilkan 10 jenis polusi laut yang paling sering terjadi dalam data yang difilter. Ini membantu mengidentifikasi polusi yang paling dominan.")
+
+    top_pollution = None # Initialize to None
+
     if not filtered_df.empty:
-        top_pollution = filtered_df['pollution_type'].value_counts().nlargest(10)
-        title_bar = "Top 10 Jenis Polusi (Data Difilter)"
-    elif not df.empty: # This is your fallback
+        # Ensure pollution_type column exists and has non-null values for counting
+        if 'pollution_type' in filtered_df.columns and not filtered_df['pollution_type'].dropna().empty:
+            top_pollution = filtered_df['pollution_type'].value_counts().nlargest(10)
+            title_bar = "Top 10 Jenis Polusi (Data Difilter)"
+        else:
+            st.info("Filtered data has no valid 'pollution_type' entries to display the chart.")
+    elif not df.empty:
         st.warning("Tidak ada data yang sesuai dengan filter. Menampilkan data dari semua negara dan jenis polusi.")
-        top_pollution = df['pollution_type'].value_counts().nlargest(10)
-        title_bar = "Top 10 Jenis Polusi (Semua Data)"
-    else: # This block is reached if both filtered_df and df are empty
-        top_pollution = None
+        # Ensure pollution_type column exists and has non-null values for counting
+        if 'pollution_type' in df.columns and not df['pollution_type'].dropna().empty:
+            top_pollution = df['pollution_type'].value_counts().nlargest(10)
+            title_bar = "Top 10 Jenis Polusi (Semua Data)"
+        else:
+            st.info("Original data has no valid 'pollution_type' entries to display the chart.")
+    else:
+        st.info("Neither filtered nor original data is available for pollution types.")
+
+    # --- DEBUGGING LINE FOR top_pollution ---
+    st.write("Debug: Value of top_pollution before plotting:")
+    st.write(top_pollution)
+    # --- END DEBUGGING LINE ---
 
     if top_pollution is not None and not top_pollution.empty:
         fig_bar = px.bar(
@@ -106,7 +122,7 @@ with col2:
             color_discrete_sequence=px.colors.qualitative.Pastel
         )
         st.plotly_chart(fig_bar, use_container_width=True)
-    else: # This block is reached if top_pollution is None or empty
+    else:
         st.info("Tidak ada data yang bisa ditampilkan untuk jenis polusi.")
 
 if not filtered_df.empty:
