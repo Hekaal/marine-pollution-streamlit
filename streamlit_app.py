@@ -131,6 +131,7 @@ col1, col2 = st.columns(2) # Dua kolom untuk grafik yang berdampingan
 with col1:
     # Peta Sebaran Lokasi Insiden
     st.header("🗺️ Sebaran Lokasi Insiden Polusi Laut")
+    st.caption("Visualisasi ini menunjukkan lokasi geografis insiden polusi laut berdasarkan koordinat yang tercatat. Warna pada titik menunjukkan jenis polusi yang terjadi.")
     if not filtered_df.empty:
         fig_map = px.scatter_geo(
             filtered_df,
@@ -148,6 +149,8 @@ with col1:
 with col2:
     # Bar Chart Jenis Polusi Paling Umum
     st.header("📊 Jenis Polusi Paling Umum")
+    st.caption("Grafik batang ini menampilkan 10 jenis polusi laut yang paling sering terjadi dalam data yang difilter. Ini membantu mengidentifikasi polusi yang paling dominan.")
+
     if not filtered_df.empty:
         top_pollution = filtered_df['pollution_type'].value_counts().nlargest(10)
         if not top_pollution.empty:
@@ -166,6 +169,8 @@ with col2:
 
 # Time Trend Insiden Polusi
 st.header("📈 Tren Waktu Insiden Polusi")
+st.caption("Grafik ini menunjukkan bagaimana jumlah insiden polusi laut berubah dari waktu ke waktu. Setiap titik mewakili total insiden dalam satu bulan.")
+
 if not filtered_df.empty:
     dff_trend = filtered_df.dropna(subset=['inc_date'])
     if not dff_trend.empty:
@@ -187,6 +192,8 @@ else:
 
 # Awareness Pie Chart
 st.header("💡 Kesadaran dan Edukasi Publik")
+st.caption("Diagram donat ini menggambarkan distribusi status kesadaran masyarakat ('aware') terhadap insiden polusi laut, berdasarkan kolom `aware_ans`.")
+
 if not filtered_df.empty:
     if 'aware_ans' in filtered_df.columns: # Memastikan kolom 'aware_ans' ada
         aware_count = filtered_df['aware_ans'].dropna().value_counts()
@@ -208,6 +215,8 @@ else:
 # --- Tabel Data Detail Insiden ---
 st.markdown("---") # Garis pemisah
 st.header("📋 Detail Data Insiden")
+st.caption("Tabel ini menyajikan data mentah dari insiden yang ditampilkan, termasuk negara, tanggal kejadian, jenis polusi, dan lokasi geografisnya.")
+
 if not filtered_df.empty:
     st.dataframe(
         filtered_df[['Country', 'inc_date', 'pollution_type', 'material', 'LAT_1', 'LONG']],
