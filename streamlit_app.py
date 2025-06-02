@@ -10,49 +10,51 @@ def load_data():
     try:
         df = pd.read_excel("Marine Pollution data.xlsx", sheet_name="ENV_Marine_Pollution_Obs_data_v")
         
-        # Convert date column, coercing errors to NaT
         df['inc_date'] = pd.to_datetime(df['inc_date'], errors='coerce')
-        
-        # Convert pollution_qty to numeric, coercing errors to NaN
         df['pollution_qty'] = pd.to_numeric(df['pollution_qty'], errors='coerce')
         
-        # Drop Note columns (if they exist)
         note_cols = [col for col in df.columns if col.startswith("Note")]
         df.drop(columns=note_cols, inplace=True)
         
-        # Drop rows with missing LAT_1 or LONG for map visualization
         df = df.dropna(subset=['LAT_1', 'LONG'])
         
-        # --- PERBAIKAN PENTING: Pembersihan kolom 'pollution_type' yang sangat kuat ---
+        # --- KODE PEMBERSIHAN DATA 'pollution_type' YANG LEBIH LANJUT ---
         if 'pollution_type' in df.columns:
-            # Mengubah semua nilai menjadi string untuk memastikan konsistensi
-            df['pollution_type'] = df['pollution_type'].astype(str)
+            # 1. Konversi ke string dan buang spasi di awal/akhir
+            df['pollution_type'] = df['pollution_type'].astype(str).str.strip()
             
-            # Menghilangkan spasi di awal/akhir
-            df['pollution_type'] = df['pollution_type'].str.strip()
+            # 2. Ubah semua teks menjadi huruf kecil untuk standarisasi (kemudian akan kita kapitalisasi lagi jika perlu)
+            df['pollution_type'] = df['pollution_type'].str.lower()
+
+            # 3. Ganti nilai-nilai yang bermasalah dengan 'Tidak Diketahui'
+            problematic_values = ['nan', '', ' ', '-', '0', 'null', 'n/a', 'no data'] # Tambahkan jika ada nilai bermasalah lain yang Anda temukan di Excel
+            df['pollution_type'] = df['pollution_type'].replace(problematic_values, 'tidak diketahui')
             
-            # Mengganti string kosong atau "nan" (dari konversi NaN ke string) dengan 'Tidak Diketahui'
+            # 4. Standarisasi ejaan (jika ada variasi umum, contoh: "oil spill" vs "oil spills")
+            # Anda harus menyesuaikan ini berdasarkan variasi yang Anda temukan di data Anda
             df['pollution_type'] = df['pollution_type'].replace({
-                '': 'Tidak Diketahui',          # Menangani string kosong
-                'nan': 'Tidak Diketahui',       # Menangani nilai NaN yang dikonversi ke string 'nan'
-                ' ': 'Tidak Diketahui',         # Menangani spasi kosong
-                '-': 'Tidak Diketahui'          # Contoh: jika ada tanda '-' untuk kosong
+                'oil spill': 'tumpahan minyak',
+                'oil spills': 'tumpahan minyak',
+                'waste dumped overboard': 'limbah dibuang ke laut',
+                'plastic waste': 'limbah plastik',
+                # ... tambahkan lebih banyak jika ada variasi lain
             })
+
+            # 5. Kapitalisasi huruf pertama setiap kata (opsional, untuk tampilan yang lebih rapi)
+            df['pollution_type'] = df['pollution_type'].str.title()
             
-            # Pastikan semua string tetap valid, buang jika masih ada yang tidak berguna
-            # Misalnya, jika ada baris yang hanya berisi angka atau simbol yang tidak relevan
-            # Ini opsional, tergantung seberapa "kotor" data Anda
-            # df['pollution_type'] = df['pollution_type'].apply(lambda x: x if isinstance(x, str) and len(x) > 1 else 'Tidak Diketahui')
+            # 6. Pastikan 'Tidak Diketahui' tetap 'Tidak Diketahui' setelah title()
+            df.loc[df['pollution_type'] == 'Tidak Diketahui', 'pollution_type'] = 'Tidak Diketahui'
 
         else:
             print("Peringatan: Kolom 'pollution_type' tidak ditemukan di dataset. Membuat kolom placeholder.")
             df['pollution_type'] = 'Tidak Diketahui (Kolom Hilang)'
-        # --- AKHIR PERBAIKAN ---
+        # --- AKHIR KODE PEMBERSIHAN ---
 
-        print(f"DEBUG: Data Loaded. Total rows: {len(df)}")
-        print(f"DEBUG: Unique pollution types after strong cleaning: {df['pollution_type'].nunique()}")
-        print("DEBUG: Top 5 pollution types after strong cleaning:")
-        print(df['pollution_type'].value_counts(dropna=False).head())
+        print(f"DEBUG: Data Loaded Successfully. Total rows: {len(df)}")
+        print(f"DEBUG: Unique pollution types after comprehensive cleaning: {df['pollution_type'].nunique()}")
+        print("DEBUG: Top 10 pollution types after comprehensive cleaning:")
+        print(df['pollution_type'].value_counts(dropna=False).head(10))
 
         return df
     except FileNotFoundError:
@@ -62,6 +64,8 @@ def load_data():
         st.error(f"Terjadi kesalahan saat memuat data: {e}. Mohon periksa format file Excel Anda.")
         st.stop()
 
+# --- Sisa kode aplikasi Anda sama seperti sebelumnya ---
+# --- (Anda bisa salin tempel sisa kode dari jawaban saya sebelumnya setelah fungsi load_data) ---
 df = load_data()
 
 st.title("🌍 Marine Pollution Dashboard")
